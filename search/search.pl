@@ -1,19 +1,18 @@
-%%%%%%%%%%%%%%%%%%%%%%
-
-
 % Entry point: find the shortest sequence of actions (moves + unlocks)
 search(Actions) :-
-    initial(Start),
-    % pick up any key in the starting room
-    pickup(Start, [], StartKeys),
-    bfs([node(Start, StartKeys, [])], [], Actions).
+    initial(StartRoom),
+    pickup(StartRoom, [], StartKeys),
+    bfs([node(StartRoom, StartKeys, [])], [], Actions).
 
-% bfs(Queue, VisitedStates, SolutionPath)
+% Breadth-First Search
 bfs([node(Room, _, Path) | _], _, Path) :-
     treasure(Room), !.
+
 bfs([node(Room, Keys, _) | Rest], Visited, Actions) :-
-    member(state(Room, Keys), Visited), !,
+    sort(Keys, SortedKeys),
+    member(state(Room, SortedKeys), Visited), !,
     bfs(Rest, Visited, Actions).
+
 bfs([node(Room, Keys, Path) | Rest], Visited, Actions) :-
     findall(
         node(NextRoom, NextKeys, NewPath),
@@ -23,39 +22,31 @@ bfs([node(Room, Keys, Path) | Rest], Visited, Actions) :-
         ),
         Children
     ),
+    sort(Keys, SortedKeys),
     append(Rest, Children, NewQueue),
-    bfs(NewQueue, [state(Room, Keys) | Visited], Actions).
+    bfs(NewQueue, [state(Room, SortedKeys) | Visited], Actions).
 
-%% next_state/5:
-%%   from Room with Keys, you can go to NextRoom, ending up with NextKeys,
-%%   performing the sequence StepActions = either [move(...)] or [unlock,move].
+% next_state/5:
+% Given current Room and Keys, produce a valid next move and updated keys
 
-% Open (unlocked) door: just move
+% Case 1: Move through an unlocked door
 next_state(Room, Keys, Next, KeysAfter, [move(Room, Next)]) :-
-    pickup(Room, Keys, KeysHere),
-    ( door(Room, Next)
-    ; door(Next, Room)
-    ),
-    KeysAfter = KeysHere.
+    (door(Room, Next) ; door(Next, Room)),
+    pickup(Next, Keys, KeysAfter).
 
-% Locked door: unlock first, then move
+% Case 2: Unlock a door and move through it
 next_state(Room, Keys, Next, KeysAfter, [unlock(Color), move(Room, Next)]) :-
-    pickup(Room, Keys, KeysHere),
-    ( locked_door(Room, Next, Color)
-    ; locked_door(Next, Room, Color)
-    ),
-    member(Color, KeysHere),
-    KeysAfter = KeysHere.
+    (locked_door(Room, Next, Color) ; locked_door(Next, Room, Color)),
+    member(Color, Keys),
+    pickup(Next, Keys, KeysAfter).
 
-%% pickup(Room, OldKeys, NewKeys):
-%%   collect any key in Room that you dont yet have
+% pickup(Room, OldKeys, NewKeys):
+% Collect any new key in the room
 pickup(Room, OldKeys, NewKeys) :-
     findall(
-        C,
-        ( key(Room, C), \+ member(C, OldKeys) ),
+        Color,
+        (key(Room, Color), \+ member(Color, OldKeys)),
         NewColors
     ),
-    append(NewColors, OldKeys, NewKeys).
-%%%%%%%%%%%%%%%%%%%%%%
-
-search(Actions) :- ???
+    append(NewColors, OldKeys, TempKeys),
+    sort(TempKeys, NewKeys).  % Ensure consistency in key order
