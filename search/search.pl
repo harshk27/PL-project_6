@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%
-% search/search.pl
+
 
 % Entry point: find the shortest sequence of actions (moves + unlocks)
 search(Actions) :-
